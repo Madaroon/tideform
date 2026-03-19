@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Theme } from "@/lib/types";
+import { getVisibleFields } from "@/lib/fieldVisibility";
 
 interface FormField {
   id: string;
@@ -11,6 +12,7 @@ interface FormField {
   placeholder?: string;
   required: boolean;
   options: string[];
+  settings?: Record<string, unknown>;
 }
 
 interface FormData {
@@ -36,17 +38,30 @@ export default function FormRenderer({ form, theme }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const startTime = useRef(Date.now());
 
-  const field = form.fields[step];
-  const progress = form.fields.length > 0 ? ((step + 1) / form.fields.length) * 100 : 0;
+  const visibleFields = getVisibleFields(form.fields, answers);
+
+  // Clamp step when visibility rules change.
+  useEffect(() => {
+    if (visibleFields.length === 0) {
+      if (step !== 0) setStep(0);
+      return;
+    }
+    if (step > visibleFields.length - 1) setStep(visibleFields.length - 1);
+  }, [visibleFields.length, step]);
+
+  const field = visibleFields[step];
+  const progress =
+    visibleFields.length > 0 ? ((step + 1) / visibleFields.length) * 100 : 0;
 
   const setAnswer = useCallback((value: any) => {
+    if (!field) return;
     setAnswers((prev) => ({ ...prev, [field.id]: value }));
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field.id];
       return next;
     });
-  }, [field?.id]);
+  }, [field]);
 
   const validate = useCallback(() => {
     if (!field) return true;
@@ -72,12 +87,12 @@ export default function FormRenderer({ form, theme }: Props) {
 
   const goNext = useCallback(() => {
     if (!validate()) return;
-    if (step < form.fields.length - 1) {
+    if (step < visibleFields.length - 1) {
       setStep((s) => s + 1);
     } else {
       handleSubmit();
     }
-  }, [step, form.fields.length, validate]);
+  }, [step, visibleFields.length, validate]);
 
   const goBack = useCallback(() => {
     if (step > 0) setStep((s) => s - 1);
@@ -155,7 +170,9 @@ export default function FormRenderer({ form, theme }: Props) {
   if (!field) {
     return (
       <div style={{ textAlign: "center", padding: 48, color: s.muted }}>
-        This form has no questions yet.
+        {visibleFields.length === 0
+          ? "No questions match the selected conditions."
+          : "This form has no questions yet."}
       </div>
     );
   }
@@ -189,7 +206,7 @@ export default function FormRenderer({ form, theme }: Props) {
       {/* Question */}
       <div style={{ flex: 1, padding: 32, display: "flex", flexDirection: "column", justifyContent: "center" }}>
         <div style={{ fontSize: 11, color: s.accent, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-          Question {step + 1} of {form.fields.length}
+          Question {step + 1} of {visibleFields.length}
         </div>
         <div style={{ fontSize: 20, fontWeight: 500, marginBottom: 6, lineHeight: 1.4 }}>
           {field.label || `Question ${step + 1}`}
@@ -227,7 +244,7 @@ export default function FormRenderer({ form, theme }: Props) {
           background: s.accent, color: s.bg, fontSize: 13, fontWeight: 600,
           cursor: "pointer", opacity: submitting ? 0.6 : 1,
         }}>
-          {submitting ? "Submitting..." : step === form.fields.length - 1 ? "Submit" : "Next →"}
+          {submitting ? "Submitting..." : step === visibleFields.length - 1 ? "Submit" : "Next →"}
         </button>
       </div>
 

@@ -1,5 +1,6 @@
 import { customAlphabet } from "nanoid";
 import { clsx, type ClassValue } from "clsx";
+import { isFieldVisible } from "@/lib/fieldVisibility";
 
 // ─── Classnames ──────────────────────────────────────────────────────────────
 
@@ -85,12 +86,21 @@ export function formatDuration(seconds: number): string {
 // ─── Submission Validation ───────────────────────────────────────────────────
 
 export function validateSubmission(
-  fields: Array<{ id: string; type: string; required: boolean; options: string[] }>,
+  fields: Array<{
+    id: string;
+    type: string;
+    required: boolean;
+    options: string[];
+    settings?: Record<string, unknown>;
+  }>,
   data: Record<string, unknown>
 ): { valid: boolean; errors: Record<string, string> } {
   const errors: Record<string, string> = {};
 
   for (const field of fields) {
+    // Skip hidden fields entirely (including required/type validation).
+    if (!isFieldVisible(field, data)) continue;
+
     const value = data[field.id];
 
     if (field.required) {

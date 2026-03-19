@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       type: f.type,
       required: f.required,
       options: JSON.parse(f.options as string),
+      settings: JSON.parse(f.settings as string),
     }));
 
     const validation = validateSubmission(fields, parsed.data.data);

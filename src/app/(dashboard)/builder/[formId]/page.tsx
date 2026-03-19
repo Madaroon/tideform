@@ -7,6 +7,7 @@ import Link from "next/link";
 import { FIELD_TYPES, THEMES, DEFAULT_FORM_SETTINGS } from "@/lib/types";
 import type { FormField, ThemeKey } from "@/lib/types";
 import { generateFieldId } from "@/lib/utils";
+import { getFieldVisibilityRule, getVisibleFields } from "@/lib/fieldVisibility";
 
 export default function BuilderPage() {
   const { data: session, status } = useSession();
@@ -189,6 +190,20 @@ export default function BuilderPage() {
   }, [view, fields]);
 
   const t = THEMES[theme] || THEMES.midnight;
+
+  const visiblePreviewFields = getVisibleFields(fields, previewAnswers);
+
+  // Clamp the step when conditions change.
+  useEffect(() => {
+    if (view !== "preview") return;
+    if (visiblePreviewFields.length === 0) {
+      if (previewStep !== 0) setPreviewStep(0);
+      return;
+    }
+    if (previewStep > visiblePreviewFields.length - 1) {
+      setPreviewStep(visiblePreviewFields.length - 1);
+    }
+  }, [view, visiblePreviewFields.length, previewStep]);
 
   if (status === "loading" || loading) {
     return (
@@ -497,6 +512,297 @@ export default function BuilderPage() {
                             <span className="text-[11px]" style={{ color: t.muted }}>Required</span>
                           </div>
                         )}
+
+                        {/* Conditional visibility */}
+                        {isSelected && (() => {
+                          const rule = getFieldVisibilityRule(field.settings as any);
+                          const enabled = !!rule;
+                          const otherFields = fields.filter((f) => f.id !== field.id);
+                          const dependsField = rule ? fields.find((f) => f.id === rule.fieldId) : null;
+
+                          const defaultValueFor = (dep: FormField | undefined | null) => {
+                            if (!dep) return "";
+                            switch (dep.type) {
+                              case "yes_no":
+                                return "Yes";
+                              case "rating":
+                                return "5";
+                              case "scale":
+                                return "10";
+                              case "select":
+                              case "multi_select":
+                                return dep.options?.[0] ?? "";
+                              default:
+                                return "";
+                            }
+                          };
+
+                          const valueEditor = (() => {
+                            const expected = (rule?.value ?? "") as any;
+                            if (!dependsField) {
+                              return (
+                                <input
+                                  className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                  style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                  value={String(expected)}
+                                  onChange={(e) => {
+                                    const nextSettings = { ...(field.settings || {}) } as any;
+                                    nextSettings.visibility = {
+                                      fieldId: rule?.fieldId ?? field.id,
+                                      operator: "equals",
+                                      value: e.target.value,
+                                    };
+                                    updateField(field.id, { settings: nextSettings });
+                                  }}
+                                />
+                              );
+                            }
+
+                            if (dependsField.type === "select" || dependsField.type === "multi_select") {
+                              return (
+                                <select
+                                  className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                  style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                  value={String(expected)}
+                                  onChange={(e) => {
+                                    const nextSettings = { ...(field.settings || {}) } as any;
+                                    nextSettings.visibility = {
+                                      fieldId: dependsField.id,
+                                      operator: "equals",
+                                      value: e.target.value,
+                                    };
+                                    updateField(field.id, { settings: nextSettings });
+                                  }}
+                                >
+                                  {dependsField.options.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              );
+                            }
+
+                            if (dependsField.type === "yes_no") {
+                              return (
+                                <select
+                                  className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                  style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                  value={String(expected)}
+                                  onChange={(e) => {
+                                    const nextSettings = { ...(field.settings || {}) } as any;
+                                    nextSettings.visibility = {
+                                      fieldId: dependsField.id,
+                                      operator: "equals",
+                                      value: e.target.value,
+                                    };
+                                    updateField(field.id, { settings: nextSettings });
+                                  }}
+                                >
+                                  {["Yes", "No"].map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              );
+                            }
+
+                            if (dependsField.type === "rating") {
+                              return (
+                                <select
+                                  className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                  style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                  value={String(expected)}
+                                  onChange={(e) => {
+                                    const nextSettings = { ...(field.settings || {}) } as any;
+                                    nextSettings.visibility = {
+                                      fieldId: dependsField.id,
+                                      operator: "equals",
+                                      value: e.target.value,
+                                    };
+                                    updateField(field.id, { settings: nextSettings });
+                                  }}
+                                >
+                                  {["1", "2", "3", "4", "5"].map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              );
+                            }
+
+                            if (dependsField.type === "scale") {
+                              return (
+                                <select
+                                  className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                  style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                  value={String(expected)}
+                                  onChange={(e) => {
+                                    const nextSettings = { ...(field.settings || {}) } as any;
+                                    nextSettings.visibility = {
+                                      fieldId: dependsField.id,
+                                      operator: "equals",
+                                      value: e.target.value,
+                                    };
+                                    updateField(field.id, { settings: nextSettings });
+                                  }}
+                                >
+                                  {Array.from({ length: 10 }, (_, idx) => String(idx + 1)).map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              );
+                            }
+
+                            if (dependsField.type === "date") {
+                              return (
+                                <input
+                                  className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                  style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                  type="date"
+                                  value={String(expected)}
+                                  onChange={(e) => {
+                                    const nextSettings = { ...(field.settings || {}) } as any;
+                                    nextSettings.visibility = {
+                                      fieldId: dependsField.id,
+                                      operator: "equals",
+                                      value: e.target.value,
+                                    };
+                                    updateField(field.id, { settings: nextSettings });
+                                  }}
+                                />
+                              );
+                            }
+
+                            if (dependsField.type === "number") {
+                              return (
+                                <input
+                                  className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                  style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                  type="number"
+                                  value={String(expected)}
+                                  onChange={(e) => {
+                                    const nextSettings = { ...(field.settings || {}) } as any;
+                                    nextSettings.visibility = {
+                                      fieldId: dependsField.id,
+                                      operator: "equals",
+                                      value: e.target.value,
+                                    };
+                                    updateField(field.id, { settings: nextSettings });
+                                  }}
+                                />
+                              );
+                            }
+
+                            return (
+                              <input
+                                className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                value={String(expected)}
+                                onChange={(e) => {
+                                  const nextSettings = { ...(field.settings || {}) } as any;
+                                  nextSettings.visibility = {
+                                    fieldId: dependsField.id,
+                                    operator: "equals",
+                                    value: e.target.value,
+                                  };
+                                  updateField(field.id, { settings: nextSettings });
+                                }}
+                              />
+                            );
+                          })();
+
+                          return (
+                            <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <div className="text-[11px] font-medium" style={{ color: t.muted }}>
+                                    Conditional visibility
+                                  </div>
+                                  <div className="text-[10px]" style={{ color: t.muted }}>
+                                    Show this field only when a rule matches
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    if (enabled) {
+                                      const nextSettings = { ...(field.settings || {}) } as any;
+                                      delete nextSettings.visibility;
+                                      updateField(field.id, { settings: nextSettings });
+                                      return;
+                                    }
+                                    const firstOther = otherFields[0];
+                                    if (!firstOther) return;
+                                    updateField(field.id, {
+                                      settings: {
+                                        ...(field.settings || {}),
+                                        visibility: {
+                                          fieldId: firstOther.id,
+                                          operator: "equals",
+                                          value: defaultValueFor(firstOther),
+                                        },
+                                      },
+                                    });
+                                  }}
+                                  className="w-8 h-[18px] rounded-full relative transition-colors"
+                                  style={{ background: enabled ? t.accent : t.border }}
+                                  title={enabled ? "Disable condition" : "Enable condition"}
+                                >
+                                  <div
+                                    className="w-3.5 h-3.5 rounded-full bg-white absolute top-[2px] transition-transform"
+                                    style={{ left: 2, transform: enabled ? "translateX(14px)" : "translateX(0)" }}
+                                  />
+                                </button>
+                              </div>
+
+                              {enabled && (
+                                <>
+                                  <div>
+                                    <div className="text-[10px] font-semibold mb-1" style={{ color: t.muted }}>
+                                      Only show if field
+                                    </div>
+                                    <select
+                                      className="w-full px-2.5 py-1.5 rounded-md border text-xs outline-none"
+                                      style={{ borderColor: t.border, background: t.bg, color: t.text }}
+                                      value={String(rule?.fieldId ?? "")}
+                                      onChange={(e) => {
+                                        const nextDependsId = e.target.value;
+                                        const nextDepends = fields.find((f) => f.id === nextDependsId);
+                                        updateField(field.id, {
+                                          settings: {
+                                            ...(field.settings || {}),
+                                            visibility: {
+                                              fieldId: nextDependsId,
+                                              operator: "equals",
+                                              value: defaultValueFor(nextDepends),
+                                            },
+                                          },
+                                        });
+                                      }}
+                                    >
+                                      {otherFields.map((dep) => (
+                                        <option key={dep.id} value={dep.id}>
+                                          {dep.label || dep.id}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <div className="text-[10px] font-semibold mb-1" style={{ color: t.muted }}>
+                                      equals
+                                    </div>
+                                    {valueEditor}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })}
@@ -523,6 +829,11 @@ export default function BuilderPage() {
                 <p className="text-sm" style={{ color: t.muted }}>{settings.successMessage}</p>
                 <button onClick={() => { setPreviewStep(0); setPreviewAnswers({}); setPreviewDone(false); }} className="mt-5 px-4 py-2 rounded-lg border text-xs font-medium" style={{ borderColor: t.border, color: t.muted }}>Preview again</button>
               </div>
+            ) : visiblePreviewFields.length === 0 ? (
+              <div className="p-10 text-center text-sm" style={{ color: t.muted }}>
+                <p>No questions match the selected conditions.</p>
+                <p className="text-xs mt-1 opacity-60">Edit the field conditions in the Build tab.</p>
+              </div>
             ) : (
               <>
                 <div className="pt-6 px-8">
@@ -530,28 +841,35 @@ export default function BuilderPage() {
                   {description && <p className="text-xs" style={{ color: t.muted }}>{description}</p>}
                 </div>
                 <div className="h-[3px] mx-8 mt-4 rounded-full overflow-hidden" style={{ background: t.border }}>
-                  <div className="h-full rounded-full transition-all duration-500" style={{ background: t.accent, width: `${((previewStep + 1) / fields.length) * 100}%` }} />
+                  <div className="h-full rounded-full transition-all duration-500" style={{ background: t.accent, width: `${((previewStep + 1) / visiblePreviewFields.length) * 100}%` }} />
                 </div>
                 <div className="flex-1 p-8 flex flex-col justify-center">
                   <div className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: t.accent }}>
-                    Question {previewStep + 1} of {fields.length}
+                    Question {previewStep + 1} of {visiblePreviewFields.length}
                   </div>
                   <div className="text-lg font-medium mb-5 leading-snug">
-                    {fields[previewStep]?.label || `Question ${previewStep + 1}`}
-                    {fields[previewStep]?.required && <span style={{ color: "#f87171" }}> *</span>}
+                    {visiblePreviewFields[previewStep]?.label || `Question ${previewStep + 1}`}
+                    {visiblePreviewFields[previewStep]?.required && <span style={{ color: "#f87171" }}> *</span>}
                   </div>
-                  <PreviewInput field={fields[previewStep]} value={previewAnswers[fields[previewStep]?.id]} onChange={(v) => setPreviewAnswers((p) => ({ ...p, [fields[previewStep].id]: v }))} theme={t} />
+                  <PreviewInput
+                    field={visiblePreviewFields[previewStep]}
+                    value={previewAnswers[visiblePreviewFields[previewStep]?.id]}
+                    onChange={(v) =>
+                      setPreviewAnswers((p) => ({ ...p, [visiblePreviewFields[previewStep].id]: v }))
+                    }
+                    theme={t}
+                  />
                 </div>
                 <div className="px-8 py-4 flex justify-between items-center border-t" style={{ borderColor: t.border }}>
                   {previewStep > 0 ? (
                     <button onClick={() => setPreviewStep((s) => s - 1)} className="px-5 py-2.5 rounded-lg border text-xs font-semibold" style={{ borderColor: t.border, color: t.muted }}>← Back</button>
                   ) : <div />}
                   <button
-                    onClick={() => { if (previewStep < fields.length - 1) setPreviewStep((s) => s + 1); else setPreviewDone(true); }}
+                    onClick={() => { if (previewStep < visiblePreviewFields.length - 1) setPreviewStep((s) => s + 1); else setPreviewDone(true); }}
                     className="px-5 py-2.5 rounded-lg text-xs font-semibold"
                     style={{ background: t.accent, color: t.bg }}
                   >
-                    {previewStep === fields.length - 1 ? "Submit" : "Next →"}
+                    {previewStep === visiblePreviewFields.length - 1 ? "Submit" : "Next →"}
                   </button>
                 </div>
               </>
