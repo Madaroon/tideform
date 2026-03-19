@@ -1,0 +1,51 @@
+# Tideform — Docker Compose
+# Usage: docker compose up -d
+# Dashboard: http://localhost:3000
+
+version: "3.8"
+
+services:
+  tideform:
+    image: tideform/tideform:latest
+    # Or build locally:
+    # build: .
+    container_name: tideform
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - tideform-data:/app/data
+    environment:
+      - DATABASE_PROVIDER=sqlite
+      - DATABASE_URL=file:/app/data/tideform.db
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=change-this-to-a-random-secret-in-production
+      # Optional: AI-powered form generation
+      # - ANTHROPIC_API_KEY=sk-ant-...
+      # Optional: OAuth providers
+      # - GITHUB_CLIENT_ID=
+      # - GITHUB_CLIENT_SECRET=
+      # - GOOGLE_CLIENT_ID=
+      # - GOOGLE_CLIENT_SECRET=
+
+  # ─── Optional: PostgreSQL for production ─────────────────────────────────
+  # Uncomment below and change DATABASE_PROVIDER to "postgresql" above
+  #
+  # postgres:
+  #   image: postgres:16-alpine
+  #   restart: unless-stopped
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: tideform
+  #     POSTGRES_USER: tideform
+  #     POSTGRES_PASSWORD: change-me
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U tideform"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+
+volumes:
+  tideform-data:
+  # postgres-data:

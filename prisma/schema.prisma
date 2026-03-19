@@ -1,0 +1,149 @@
+// Tideform Database Schema
+// Supports SQLite for local dev, PostgreSQL for production
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  forms    Form[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Forms ───────────────────────────────────────────────────────────────────
+
+model Form {
+  id          String   @id @default(cuid())
+  slug        String   @unique // public URL slug e.g. "customer-feedback-abc123"
+  title       String   @default("Untitled Form")
+  description String?
+  theme       String   @default("midnight")
+  status      String   @default("draft") // draft | published | closed
+  settings    String   @default("{}") // JSON: requireAuth, showProgressBar, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  publishedAt DateTime?
+  closedAt    DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fields      FormField[]
+  submissions Submission[]
+
+  @@index([userId])
+  @@index([slug])
+  @@map("forms")
+}
+
+model FormField {
+  id          String  @id @default(cuid())
+  formId      String
+  type        String  // short_text, long_text, email, number, select, multi_select, rating, date, yes_no, scale, file
+  label       String  @default("")
+  description String?
+  placeholder String?
+  required    Boolean @default(false)
+  options     String  @default("[]") // JSON array for select/multi_select
+  validation  String  @default("{}") // JSON: min, max, regex, etc.
+  position    Int     @default(0)
+  settings    String  @default("{}") // JSON: conditional logic, etc.
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@map("form_fields")
+}
+
+// ─── Submissions ─────────────────────────────────────────────────────────────
+
+model Submission {
+  id          String   @id @default(cuid())
+  formId      String
+  data        String   @default("{}") // JSON: { fieldId: value, ... }
+  metadata    String   @default("{}") // JSON: userAgent, ip (hashed), country, etc.
+  status      String   @default("complete") // complete | partial
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  form Form @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@index([formId])
+  @@index([createdAt])
+  @@map("submissions")
+}
+
+// ─── Webhooks ────────────────────────────────────────────────────────────────
+
+model Webhook {
+  id        String   @id @default(cuid())
+  formId    String
+  url       String
+  secret    String?
+  events    String   @default("[\"submission.created\"]") // JSON array
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([formId])
+  @@map("webhooks")
+}
