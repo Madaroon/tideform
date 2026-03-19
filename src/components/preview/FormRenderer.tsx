@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { Theme } from "@/lib/types";
 import { getVisibleFields } from "@/lib/fieldVisibility";
+import FileUploadInput from "@/components/uploads/FileUploadInput";
 
 interface FormField {
   id: string;
@@ -28,9 +29,16 @@ interface FormData {
 interface Props {
   form: FormData;
   theme: Theme;
+  showBranding?: boolean;
+  variant?: "default" | "embed";
 }
 
-export default function FormRenderer({ form, theme }: Props) {
+export default function FormRenderer({
+  form,
+  theme,
+  showBranding = true,
+  variant = "default",
+}: Props) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -177,11 +185,19 @@ export default function FormRenderer({ form, theme }: Props) {
     );
   }
 
+  const isEmbed = variant === "embed";
+
   return (
-    <div style={{
-      width: "100%", maxWidth: 480, margin: "0 auto", minHeight: "100vh",
-      display: "flex", flexDirection: "column",
-    }}>
+    <div
+      style={{
+        width: "100%",
+        maxWidth: isEmbed ? "100%" : 480,
+        margin: isEmbed ? 0 : "0 auto",
+        minHeight: isEmbed ? "auto" : "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       {/* Header */}
       <div style={{ padding: "32px 32px 0" }}>
         <h1 style={{
@@ -249,9 +265,11 @@ export default function FormRenderer({ form, theme }: Props) {
       </div>
 
       {/* Branding */}
-      <div style={{ textAlign: "center", padding: "12px 0 24px", fontSize: 11, color: s.muted }}>
-        Powered by <a href="https://github.com/tideform/tideform" style={{ color: s.accent, textDecoration: "none" }}>Tideform</a>
-      </div>
+      {showBranding && (
+        <div style={{ textAlign: "center", padding: "12px 0 24px", fontSize: 11, color: s.muted }}>
+          Powered by <a href="https://github.com/tideform/tideform" style={{ color: s.accent, textDecoration: "none" }}>Tideform</a>
+        </div>
+      )}
     </div>
   );
 }
@@ -435,6 +453,15 @@ function FieldInput({ field, value, onChange, theme: s }: {
             </button>
           ))}
         </div>
+      );
+
+    case "file":
+      return (
+        <FileUploadInput
+          value={value || null}
+          onChange={(v) => onChange(v)}
+          theme={s}
+        />
       );
 
     default:

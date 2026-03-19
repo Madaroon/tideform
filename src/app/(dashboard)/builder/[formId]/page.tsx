@@ -8,6 +8,7 @@ import { FIELD_TYPES, THEMES, DEFAULT_FORM_SETTINGS } from "@/lib/types";
 import type { FormField, ThemeKey } from "@/lib/types";
 import { generateFieldId } from "@/lib/utils";
 import { getFieldVisibilityRule, getVisibleFields } from "@/lib/fieldVisibility";
+import FileUploadInput from "@/components/uploads/FileUploadInput";
 
 export default function BuilderPage() {
   const { data: session, status } = useSession();
@@ -33,6 +34,13 @@ export default function BuilderPage() {
   const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
   const [previewDone, setPreviewDone] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  // Embed code modal state
+  const [embedModalOpen, setEmbedModalOpen] = useState(false);
+  const [embedLoading, setEmbedLoading] = useState(false);
+  const [embedHtmlSnippet, setEmbedHtmlSnippet] = useState("");
+  const [embedScriptTag, setEmbedScriptTag] = useState("");
+  const [embedCopied, setEmbedCopied] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -182,6 +190,24 @@ export default function BuilderPage() {
     if (data.form) setFormStatus(data.form.status);
   }, [formId, formStatus, save]);
 
+  const loadEmbedCode = useCallback(async () => {
+    setEmbedLoading(true);
+    setEmbedCopied(false);
+    try {
+      const res = await fetch(`/api/forms/${formId}/embed`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to load embed code");
+      }
+      setEmbedHtmlSnippet(data?.htmlSnippet || "");
+      setEmbedScriptTag(data?.scriptTag || "");
+    } catch (e: any) {
+      alert(e?.message || "Failed to load embed code");
+    } finally {
+      setEmbedLoading(false);
+    }
+  }, [formId]);
+
   // Reset preview
   useEffect(() => {
     setPreviewStep(0);
@@ -272,6 +298,22 @@ export default function BuilderPage() {
               View Live ↗
             </a>
           )}
+          <button
+            onClick={() => {
+              setEmbedModalOpen(true);
+              loadEmbedCode();
+            }}
+            disabled={formStatus !== "published"}
+            className="px-3 py-1.5 rounded-md text-xs font-semibold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              border: `1px solid ${t.border}`,
+              background: "transparent",
+              color: t.muted,
+            }}
+            title={formStatus !== "published" ? "Publish the form before embedding" : "Embed this form"}
+          >
+            Embed ↗
+          </button>
           <button
             onClick={publishForm}
             className="px-4 py-1.5 rounded-md text-xs font-semibold transition-opacity hover:opacity-90"
@@ -895,6 +937,104 @@ export default function BuilderPage() {
           </div>
         </div>
       )}
+
+      {/* ─── Embed Modal ─── */}
+      {embedModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          onClick={() => setEmbedModalOpen(false)}
+        >
+          <div
+            className="absolute inset-0"
+            style={{ background: "rgba(0,0,0,0.55)" }}
+          />
+          <div
+            className="relative w-[520px] max-w-[calc(100vw-24px)] rounded-2xl border p-5"
+            style={{ borderColor: t.border, background: t.card }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <div className="text-sm font-semibold" style={{ color: t.text }}>Embed this form</div>
+                <div className="text-[11px]" style={{ color: t.muted, marginTop: 3 }}>
+                  Copy/paste this code into any external website.
+                </div>
+              </div>
+              <button
+                className="w-8 h-8 rounded-md flex items-center justify-center text-sm"
+                style={{ border: `1px solid ${t.border}`, background: "transparent", color: t.muted }}
+                onClick={() => setEmbedModalOpen(false)}
+                type="button"
+                aria-label="Close embed modal"
+              >
+                ×
+              </button>
+            </div>
+
+            {embedLoading ? (
+              <div className="text-sm" style={{ color: t.muted }}>Loading embed code...</div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <div className="text-[11px] font-semibold" style={{ color: t.muted, marginBottom: 6 }}>
+                    HTML snippet
+                  </div>
+                  <textarea
+                    readOnly
+                    value={embedHtmlSnippet}
+                    className="w-full min-h-[56px] p-3 rounded-xl text-[12px] outline-none border resize-none"
+                    style={{ borderColor: t.border, background: "transparent", color: t.text }}
+                  />
+                </div>
+
+                <div>
+                  <div className="text-[11px] font-semibold" style={{ color: t.muted, marginBottom: 6 }}>
+                    Script tag
+                  </div>
+                  <textarea
+                    readOnly
+                    value={embedScriptTag}
+                    className="w-full min-h-[56px] p-3 rounded-xl text-[12px] outline-none border resize-none"
+                    style={{ borderColor: t.border, background: "transparent", color: t.text }}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const combined = `${embedHtmlSnippet}\n${embedScriptTag}`.trim();
+                      try {
+                        await navigator.clipboard.writeText(combined);
+                        setEmbedCopied(true);
+                        setTimeout(() => setEmbedCopied(false), 1500);
+                      } catch {
+                        alert("Copy failed. Please select the text manually.");
+                      }
+                    }}
+                    className="flex-1 px-4 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-90"
+                    style={{ background: t.accent, color: t.bg }}
+                  >
+                    {embedCopied ? "Copied" : "Copy all"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEmbedModalOpen(false)}
+                    className="px-4 py-2 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-90"
+                    style={{ borderColor: t.border, background: "transparent", color: t.muted }}
+                  >
+                    Done
+                  </button>
+                </div>
+
+                <div className="text-[11px]" style={{ color: t.muted }}>
+                  Tip: The form will load inside an iframe at <code style={{ color: t.text }}>/embed/{formSlug}</code>.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -966,6 +1106,16 @@ function PreviewInput({ field, value, onChange, theme: t }: { field: FormField; 
           ))}
         </div>
       );
+
+    case "file":
+      return (
+        <FileUploadInput
+          value={value || null}
+          onChange={(v) => onChange(v)}
+          theme={t}
+        />
+      );
+
     default:
       return <input type="text" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder="Type your answer..." autoFocus style={inputBase} />;
   }

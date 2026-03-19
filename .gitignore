@@ -9,6 +9,9 @@ out/
 build/
 dist/
 
+# Local uploads (runtime) - project root only
+/uploads/
+
 # Database
 *.db
 *.db-journal
