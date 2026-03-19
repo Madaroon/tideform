@@ -90,7 +90,7 @@ Response dashboard with completion rates, field-level statistics, NPS tracking, 
 Full REST API for everything — create forms, submit responses, fetch analytics. Webhook support for real-time integrations with Slack, Zapier, n8n, and more.
 
 ### 🌍 RTL & i18n Ready
-Full right-to-left layout support for Arabic, Hebrew, Farsi, and Urdu. Interface translations welcome via PR.
+Full right-to-left layout support for Arabic, Farsi, and Urdu. Interface translations welcome via PR.
 
 ## Architecture
 
